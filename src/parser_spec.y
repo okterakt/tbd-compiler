@@ -9,6 +9,11 @@ GHashTable *symtab;
 static int globoffset;
 static int tempcounter;
 
+
+void yyerror (char *s);
+int yylex();
+extern int yylineno; // export from yacc
+
 // -------- stuff --------
 
 Entry *newentry(char *name)
@@ -82,12 +87,6 @@ void emit2(char *op, Expression *exp1, Expression *exp2, Expression *res)
     }
 }
 
-int main(void)
-{
-    tempcounter = 0;
-    symtab = g_hash_table_new(g_str_hash, g_str_equal);
-    yyparse();
-}
 %}
 
 %union
@@ -214,3 +213,18 @@ expression: expression '+' expression
                 $$ = expr;
             }
 ;
+
+%%
+
+int main(void)
+{
+    tempcounter = 0;
+    symtab = g_hash_table_new(g_str_hash, g_str_equal);
+    yyparse();
+
+    return 0;
+}
+
+void yyerror (char *s) {
+	fprintf (stderr, "\nError at line %d: %s\n\n", yylineno, s);
+}
