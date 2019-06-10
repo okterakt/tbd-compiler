@@ -1,6 +1,6 @@
 %{
+#include "def.h"
 #include "y.tab.h"
-extern int yylval;
 %}
 
 digit       [0-9]
@@ -9,7 +9,7 @@ identifier  {letter}({letter}|{digit})*
 
 %%
 {digit}*        {
-                    yylval = atoi(yytext);
+                    yylval.intval = atoi(yytext);
                     return TK_INT_LIT;
                 }
 "if"            {
@@ -20,6 +20,7 @@ identifier  {letter}({letter}|{digit})*
 "<="            { return TK_LE; }
 ">="            { return TK_GE; }
 {identifier}    {
+                    yylval.name = strdup(yytext);
                     return TK_IDEN;
                 }
 [ \t]           ; // ignore whitespace
