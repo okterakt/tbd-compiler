@@ -1,6 +1,10 @@
 %{
 #include "def.h"
 #include "y.tab.h"
+
+void yyerror (char *s);
+int yylex();
+
 %}
 
 digit       [0-9]
@@ -27,3 +31,7 @@ identifier  {letter}({letter}|{digit})*
 \n              return 0; //logical EOF
 .               return yytext[0];
 %%
+
+int yywrap () {
+    return 1;
+}
