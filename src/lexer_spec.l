@@ -15,6 +15,9 @@ identifier  {letter}({letter}|{digit})*
 "if"            {
                     return TK_IF;
                 }
+"var"           {
+                    return TK_VAR;
+                }
 "=="            { return TK_EQ; }
 "!="            { return TK_NE; }
 "<="            { return TK_LE; }

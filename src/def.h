@@ -26,7 +26,8 @@ enum AddrValueType
 typedef struct Addr
 {
     int v;
-    union AddrValue {
+    union AddrValue
+    {
         Entry *entry;
         int intval;
     } addrvalue;
@@ -40,5 +41,11 @@ typedef struct Expression
     // Addr trueaddr;
     // Addr falseaddr;
 } Expression;
+
+typedef struct Statement
+{
+    char *begin;
+    char *next;
+} Statement;
 
 #endif

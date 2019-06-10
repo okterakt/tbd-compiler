@@ -34,7 +34,23 @@ Addr *newtemp()
     return newaddr(newentry(temp));
 }
 
-void emit(char *op, Expression *exp1, Expression *exp2, Expression *res)
+void emit1(Expression *exp, Expression *res)
+{
+    if (exp->addr->addrvaluetype == ENTRYPTR_TYPE)
+    {
+        printf("%s = %s\n",
+            res->addr->addrvalue.entry->name,
+            exp->addr->addrvalue.entry->name);
+    }
+    else
+    {
+        printf("%s = %d\n",
+            res->addr->addrvalue.entry->name,
+            exp->addr->addrvalue.intval);
+    }
+}
+
+void emit2(char *op, Expression *exp1, Expression *exp2, Expression *res)
 {
     if (exp1->addr->addrvaluetype == ENTRYPTR_TYPE)
     {
@@ -74,30 +90,21 @@ int main(void)
 }
 %}
 
-/*
-statement:  TK_IDEN '=' expression 
-            {
-            }
-|           TK_IF '(' expression ')' '{' statement '}'
-            {
-                printf("if (%d) { some statement }", $1);
-            }
-|           expression
-;
-*/
-
 %union
 {
+    Statement *stmt;
     Expression *expr;
     char *name;
     int intval;
 }
 
-// %type <stmt> statement
+%type <stmt> statement
 %type <expr> expression
 %token <intval> TK_INT_LIT
 %token <name> TK_IDEN
 %token TK_IF
+%token TK_VAR
+%nonassoc TK_VAR
 %left TK_EQ TK_NE
 %left '<' '>' TK_LE TK_GE
 %left '+' '-'
@@ -105,28 +112,64 @@ statement:  TK_IDEN '=' expression
 %nonassoc TK_UMINUS
 
 %%
+statements: statements statement
+|           statement
+;
 
+statement:  TK_VAR TK_IDEN ';'
+            {
+                newentry($2);
+                Statement *stmt = malloc(sizeof(*stmt));
+                $$ = stmt;
+            }
+|           TK_IDEN '=' expression ';'
+            {
+                Expression *expr = malloc(sizeof(*expr));
+                Entry *entry = g_hash_table_lookup(symtab, $1);
+                if (entry)
+                {
+                    expr->addr = newaddr(entry);
+                    emit1($3, expr);
+                }
+                else
+                {
+                    fprintf(stderr, "Name not found in symbol table");
+                    exit(0);
+                }
+                Statement *stmt = malloc(sizeof(*stmt));
+                $$ = stmt;
+            }
+|           TK_IF '(' expression ')' '{' statement '}'
+            {
+                // printf("if (%d) { some statement }", $1);
+            }
+|           expression ';'
+            {
+                Statement *stmt = malloc(sizeof(*stmt));
+                $$ = stmt;
+            }
+;
 
 expression: expression '+' expression
             {
                 Expression *expr = malloc(sizeof(*expr));
                 expr->addr = newtemp();
                 $$ = expr;
-                emit("+", $1, $3, $$);
+                emit2("+", $1, $3, $$);
             }
 |           expression '-' expression
             {
                 Expression *expr = malloc(sizeof(*expr));
                 expr->addr = newtemp();
                 $$ = expr;
-                emit("-", $1, $3, $$);
+                emit2("-", $1, $3, $$);
             }
 |           expression '*' expression
             {
                 Expression *expr = malloc(sizeof(*expr));
                 expr->addr = newtemp();
                 $$ = expr;
-                emit("*", $1, $3, $$);
+                emit2("*", $1, $3, $$);
             }
 // |           expression '<' expression       { $$ = $1 < $3; }
 // |           expression '>' expression       { $$ = $1 > $3; }
@@ -149,15 +192,17 @@ expression: expression '+' expression
 |           TK_IDEN
             {
                 Expression *expr = malloc(sizeof(*expr));
-                expr->addr = newaddr(newentry($1));
+                Entry *entry = g_hash_table_lookup(symtab, yylval.name);
+                if (entry)
+                {
+                    expr->addr = newaddr(entry);
+                }
+                else
+                {
+                    fprintf(stderr, "Name not found in symbol table");
+                    exit(0);
+                }
                 $$ = expr;
-
-                // TODO move to lexer
-                // Entry *p = g_hash_table_lookup(symtab, $1->name);
-                // if (p)
-                // {
-                // }
-                // else error
             }
 |           TK_INT_LIT
             {
