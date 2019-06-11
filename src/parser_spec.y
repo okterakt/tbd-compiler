@@ -19,6 +19,10 @@ extern int yylineno; // export from yacc
 Entry *newentry(char *name)
 {
     Entry *entry = malloc(sizeof(*entry));
+    if (entry == NULL){
+        yyerror("Can't allocate the memory!");
+        exit(0);
+    }
     entry->name = name;
     g_hash_table_insert(symtab, entry->name, entry);
     return entry;
@@ -27,6 +31,10 @@ Entry *newentry(char *name)
 Addr *newaddr(Entry *entry)
 {
     Addr *addr = malloc(sizeof(*addr));
+    if (addr == NULL){
+        yyerror("Can't allocate the memory!");
+        exit(0);
+    }
     addr->addrvalue.entry = entry;
     addr->addrvaluetype = ENTRYPTR_TYPE;
     return addr;
@@ -101,8 +109,8 @@ void emit2(char *op, Expression *exp1, Expression *exp2, Expression *res)
 %type <expr> expression
 %token <intval> TK_INT_LIT
 %token <name> TK_IDEN
-%token TK_IF
-%token TK_VAR
+%token TK_IF TK_VAR TK_EXIT
+
 %nonassoc TK_VAR
 %left TK_EQ TK_NE
 %left '<' '>' TK_LE TK_GE
@@ -198,7 +206,7 @@ expression: expression '+' expression
                 }
                 else
                 {
-                    fprintf(stderr, "Name not found in symbol table");
+                    yyerror( "Name not found in symbol table");
                     exit(0);
                 }
                 $$ = expr;
@@ -211,6 +219,10 @@ expression: expression '+' expression
                 expr->addr->addrvalue.intval = yylval.intval;
                 expr->addr->addrvaluetype = INT_TYPE;
                 $$ = expr;
+            }
+|           TK_EXIT {
+                printf("Exiting\n");
+                exit(0);
             }
 ;
 
