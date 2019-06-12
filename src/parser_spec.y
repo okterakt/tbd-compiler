@@ -8,7 +8,7 @@
 GHashTable *symtab;
 static int globoffset;
 static int tempcounter;
-
+static int labelcounter;
 
 void yyerror (char *s);
 int yylex();
@@ -33,29 +33,39 @@ Addr *newaddr(Entry *entry)
 }
 
 Addr *newtemp()
-{
-    char *temp = malloc(sizeof(*temp) * 13);
-    sprintf(temp, "t%d", tempcounter++);
+{   
+    int len = 14;
+    char *temp = malloc(sizeof(*temp) * len);
+    snprintf(temp, len, "t%d", tempcounter++);
     return newaddr(newentry(temp));
 }
 
-void emit1(Expression *exp, Expression *res)
+char *newlabel()
+{
+    char *label = malloc(sizeof(*label) * 13);
+    sprintf(label, "L%d", labelcounter++);
+    return label;
+}
+
+void emitunop(char *op, Expression *exp, Expression *res)
 {
     if (exp->addr->addrvaluetype == ENTRYPTR_TYPE)
     {
-        printf("%s = %s\n",
+        printf("%s = %s%s\n",
             res->addr->addrvalue.entry->name,
+            op,
             exp->addr->addrvalue.entry->name);
     }
     else
     {
-        printf("%s = %d\n",
+        printf("%s = %s%d\n",
             res->addr->addrvalue.entry->name,
+            op,
             exp->addr->addrvalue.intval);
     }
 }
 
-void emit2(char *op, Expression *exp1, Expression *exp2, Expression *res)
+void emitbinop(char *op, Expression *exp1, Expression *exp2, Expression *res)
 {
     if (exp1->addr->addrvaluetype == ENTRYPTR_TYPE)
     {
@@ -87,64 +97,226 @@ void emit2(char *op, Expression *exp1, Expression *exp2, Expression *res)
     }
 }
 
+void emitgoto(char *label)
+{
+
+}
+
+char *genunop(char *op, Addr *addr, Addr *res)
+{
+    int len = 0;
+    char *gencode;
+    if (addr->addrvaluetype == ENTRYPTR_TYPE)
+    {
+        len = snprintf(NULL, 0, "%s = %s%s\n",
+            res->addrvalue.entry->name,
+            op,
+            addr->addrvalue.entry->name);
+        gencode = malloc(sizeof(*gencode) * len + 1);
+        snprintf(gencode, len + 1, "%s = %s%s\n",
+            res->addrvalue.entry->name,
+            op,
+            addr->addrvalue.entry->name);
+    }
+    else
+    {
+        len = snprintf(NULL, 0, "%s = %s%d\n",
+            res->addrvalue.entry->name,
+            op,
+            addr->addrvalue.intval);
+        gencode = malloc(sizeof(*gencode) * len + 1);
+        snprintf(gencode, len + 1, "%s = %s%d\n",
+            res->addrvalue.entry->name,
+            op,
+            addr->addrvalue.intval);
+    }
+    return gencode;
+}
+
+char *genbinop(char *op, Addr *addr1, Addr *addr2, Addr *res)
+{
+    int len = 0;
+    char *gencode;
+    if (addr1->addrvaluetype == ENTRYPTR_TYPE)
+    {
+        if (addr2->addrvaluetype == ENTRYPTR_TYPE)
+        {
+            len = snprintf(NULL, 0, "%s = %s %s %s\n",
+                res->addrvalue.entry->name,
+                addr1->addrvalue.entry->name,
+                op,
+                addr2->addrvalue.entry->name);
+            gencode = malloc(sizeof(*gencode) * len + 1);
+            snprintf(gencode, len + 1, "%s = %s %s %s\n",
+                res->addrvalue.entry->name,
+                addr1->addrvalue.entry->name,
+                op,
+                addr2->addrvalue.entry->name);
+        }
+        else
+        {
+            len = snprintf(NULL, 0, "%s = %s %s %d\n",
+                res->addrvalue.entry->name,
+                addr1->addrvalue.entry->name,
+                op,
+                addr2->addrvalue.intval);
+            gencode = malloc(sizeof(*gencode) * len + 1);
+            snprintf(gencode, len + 1, "%s = %s %s %d\n",
+                res->addrvalue.entry->name,
+                addr1->addrvalue.entry->name,
+                op,
+                addr2->addrvalue.intval);
+        }
+    }
+    else
+    {
+        if (addr2->addrvaluetype == ENTRYPTR_TYPE)
+        {
+            len = snprintf(NULL, 0, "%s = %d %s %s\n",
+                res->addrvalue.entry->name,
+                addr1->addrvalue.intval,
+                op,
+                addr2->addrvalue.entry->name);
+            gencode = malloc(sizeof(*gencode) * len + 1);
+            snprintf(gencode, len + 1, "%s = %d %s %s\n",
+                res->addrvalue.entry->name,
+                addr1->addrvalue.intval,
+                op,
+                addr2->addrvalue.entry->name);
+        }
+        else
+        {
+            len = snprintf(NULL, 0, "%s = %d %s %d\n",
+                res->addrvalue.entry->name,
+                addr1->addrvalue.intval,
+                op,
+                addr2->addrvalue.intval);
+            gencode = malloc(sizeof(*gencode) * len + 1);
+            snprintf(gencode, len + 1, "%s = %d %s %d\n",
+                res->addrvalue.entry->name,
+                addr1->addrvalue.intval,
+                op,
+                addr2->addrvalue.intval);
+        }
+    }
+    return gencode;
+}
+
+char *gengoto()
+{
+
+}
+
+char *genlabel(char *label)
+{   
+    int len = snprintf(NULL, 0, "%s:\n", label);
+    char *gencode = malloc(sizeof(*gencode) * len + 1);
+    snprintf(gencode, len + 1, "%s:\n", label);
+    return gencode;
+}
+
+char *concat(char *str1, char *str2)
+{
+    int len = snprintf(NULL, 0, "%s%s", str1, str2);
+    char *res = malloc(sizeof(*res) * len + 1);
+    snprintf(res, len + 1, "%s%s", str1, str2);
+    return res;
+}
 %}
 
 %union
 {
+    Program *prgm;
     Statement *stmt;
     Expression *expr;
     char *name;
     int intval;
 }
 
+%type <prgm> program
 %type <stmt> statement
 %type <expr> expression
 %token <intval> TK_INT_LIT
 %token <name> TK_IDEN
 %token TK_IF
-%token TK_VAR
 %nonassoc TK_VAR
+%left TK_OR
+%left TK_AND
 %left TK_EQ TK_NE
 %left '<' '>' TK_LE TK_GE
 %left '+' '-'
 %left '*' '/'
+%right TK_NOT
 %nonassoc TK_UMINUS
 
 %%
-statements: statements statement
-|           statement
+program: 
+            {
+                $<name>$ = newlabel();
+                printf("S.next: %s\n", $<name>$);
+            }
+            statement
+            {
+                Program *prgm = malloc(sizeof(*prgm));
+                $<stmt>2->labnext = $<name>1;
+                prgm->code = concat($2->code, genlabel($2->labnext));
+                $<prgm>$ = prgm;
+                printf("%s\n", prgm->code);
+            }
 ;
 
 statement:  TK_VAR TK_IDEN ';'
             {
                 newentry($2);
                 Statement *stmt = malloc(sizeof(*stmt));
+                stmt->code = strdup("");
                 $$ = stmt;
             }
 |           TK_IDEN '=' expression ';'
             {
+                Statement *stmt = malloc(sizeof(*stmt));
                 Expression *expr = malloc(sizeof(*expr));
                 Entry *entry = g_hash_table_lookup(symtab, $1);
                 if (entry)
                 {
                     expr->addr = newaddr(entry);
-                    emit1($3, expr);
+                    stmt->code = concat($3->code, genunop("", $3->addr, expr->addr));
+                    // emitunop("", $3, expr);
                 }
                 else
                 {
-                    fprintf(stderr, "Name not found in symbol table");
+                    fprintf(stderr, "Attempted use of undeclared variable\n");
                     exit(0);
                 }
-                Statement *stmt = malloc(sizeof(*stmt));
+                // printf("gen: %s", stmt->code);
                 $$ = stmt;
             }
-|           TK_IF '(' expression ')' '{' statement '}'
+|           TK_IF
             {
-                // printf("if (%d) { some statement }", $1);
+                Expression *tmpexpr = malloc(sizeof(tmpexpr));
+                tmpexpr->labtrue = newlabel();
+                tmpexpr->labfalse = $<name>0;
+                $<expr>$ = tmpexpr;
+            }
+            '(' expression ')'
+            {
+                $4->labtrue = $<expr>2->labtrue;
+                $4->labfalse = $<expr>2->labfalse;
+                $<expr>$ = $4;
+            }
+            '{' statement '}'
+            {
+                $8->labnext = $<name>0;
+                Statement *stmt = malloc(sizeof(*stmt));
+                stmt->code = concat(concat($4->code, genlabel($4->labtrue)), $8->code);
+                $$ = stmt;
+                printf("E.true: %s\n", $4->labtrue);
+                printf("E.false: %s\n", $4->labfalse);
             }
 |           expression ';'
             {
                 Statement *stmt = malloc(sizeof(*stmt));
+                stmt->code = $1->code;
                 $$ = stmt;
             }
 ;
@@ -154,23 +326,33 @@ expression: expression '+' expression
                 Expression *expr = malloc(sizeof(*expr));
                 expr->addr = newtemp();
                 $$ = expr;
-                emit2("+", $1, $3, $$);
+                expr->code = concat(concat($1->code, $3->code),
+                    genbinop("+", $1->addr, $3->addr, expr->addr));
+                // emitbinop("+", $1, $3, $$);
             }
 |           expression '-' expression
             {
                 Expression *expr = malloc(sizeof(*expr));
                 expr->addr = newtemp();
+                expr->code = concat(concat($1->code, $3->code),
+                    genbinop("-", $1->addr, $3->addr, expr->addr));
                 $$ = expr;
-                emit2("-", $1, $3, $$);
+                // emitbinop("-", $1, $3, $$);
             }
 |           expression '*' expression
             {
                 Expression *expr = malloc(sizeof(*expr));
                 expr->addr = newtemp();
+                expr->code = concat(concat($1->code, $3->code),
+                    genbinop("*", $1->addr, $3->addr, expr->addr));
                 $$ = expr;
-                emit2("*", $1, $3, $$);
+                // emitbinop("*", $1, $3, $$);
             }
-// |           expression '<' expression       { $$ = $1 < $3; }
+|           expression '<' expression
+            {
+                Expression *expr = malloc(sizeof(*expr));
+                
+            }
 // |           expression '>' expression       { $$ = $1 > $3; }
 // |           expression TK_EQ expression     { $$ = $1 == $3; }
 // |           expression TK_NE expression     { $$ = $1 != $3; }
@@ -178,15 +360,64 @@ expression: expression '+' expression
 // |           expression TK_GE expression     { $$ = $1 >= $3; }
 |           '-' expression %prec TK_UMINUS
             {
-                // $$->addr = malloc(sizeof($$->addr));
-                // newtemp($$->addr);
-                // if ($2->addr->addrvaluetype == ENTRYPTR_TYPE)
-                //     printf("%s = -%s", $$->addr->addrvalue.entry->name, $2->addr->addrvalue.entry->name);
-                // else printf("%s = -%d", $$->addr->addrvalue.entry->name, $2->addr->addrvalue.intval);
+                Expression *expr = malloc(sizeof(*expr));
+                expr->addr = newtemp();
+                char *gen = genunop("-", $2->addr, expr->addr);
+                expr->code = concat($2->code, gen);
+                $$ = expr;
+                // emitunop("-", $2, $$);
             }
-|           '(' expression ')'
+|           {
+                // E1.true := newlabel(); E1.false := E.false;
+                Expression *tmpexpr = malloc(sizeof(*tmpexpr));
+                tmpexpr->labtrue = newlabel();
+                tmpexpr->labfalse = $<expr>0->labfalse;
+                $<expr>$ = tmpexpr;
+            }
+            expression
             {
-                // $$->addr = $2->addr;
+                $2->labtrue = $<expr>1->labtrue;
+                $2->labfalse = $<expr>1->labfalse;
+                // E2.true := E.true; E2.false := E.false; 
+                // reuse previous expression and set only E2.true; E2.false = E1.false = E.false
+                $<expr>$ = $<expr>1;
+                $<expr>$->labtrue = $<expr>0->labtrue;
+            }
+            TK_AND expression
+            {
+                $<expr>5->labtrue = $<expr>3->labtrue;
+                $<expr>5->labfalse = $<expr>3->labfalse;
+                Expression *expr = malloc(sizeof(*expr));
+                expr->code = concat(concat($<expr>2->code,
+                                genlabel($<expr>2->labtrue)), $<expr>5->code);
+                // E.code := E1.code || gen(E1.true ′:′) || E2.code
+                $<expr>$ = expr;
+            }
+|           TK_NOT 
+            {
+                $<expr>$ = $<expr>-1;
+            }
+            expression
+            {
+                Expression *expr = malloc(sizeof(*expr));
+                expr->labtrue = $<expr>2->labfalse;
+                expr->labfalse = $<expr>2->labtrue;
+                expr->addr = $<expr>3->addr;
+                expr->code = $<expr>3->code;
+                $<expr>$ = expr;
+            }
+|           '('
+            {
+                $<expr>$ = $<expr>-1;
+            }
+            expression ')'
+            {
+                Expression *expr = malloc(sizeof(*expr));
+                expr->labtrue = $<expr>2->labtrue;
+                expr->labfalse = $<expr>2->labfalse;
+                expr->addr = $<expr>3->addr;
+                expr->code = $<expr>3->code;
+                $<expr>$ = expr;
             }
 |           TK_IDEN
             {
@@ -195,10 +426,11 @@ expression: expression '+' expression
                 if (entry)
                 {
                     expr->addr = newaddr(entry);
+                    expr->code = strdup("");
                 }
                 else
                 {
-                    fprintf(stderr, "Name not found in symbol table");
+                    fprintf(stderr, "Attempted use of undeclared variable\n");
                     exit(0);
                 }
                 $$ = expr;
@@ -210,10 +442,10 @@ expression: expression '+' expression
                 expr->addr = addr;
                 expr->addr->addrvalue.intval = yylval.intval;
                 expr->addr->addrvaluetype = INT_TYPE;
+                expr->code = strdup("");
                 $$ = expr;
             }
 ;
-
 %%
 
 int main(void)

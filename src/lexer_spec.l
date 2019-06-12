@@ -1,10 +1,6 @@
 %{
 #include "def.h"
 #include "y.tab.h"
-
-void yyerror (char *s);
-int yylex();
-
 %}
 
 digit       [0-9]
@@ -16,12 +12,11 @@ identifier  {letter}({letter}|{digit})*
                     yylval.intval = atoi(yytext);
                     return TK_INT_LIT;
                 }
-"if"            {
-                    return TK_IF;
-                }
-"var"           {
-                    return TK_VAR;
-                }
+"if"            { return TK_IF; }
+"and"           { return TK_AND; }
+"or"            { return TK_OR; }
+"not"           { return TK_NOT; }
+"var"           { return TK_VAR; }
 "=="            { return TK_EQ; }
 "!="            { return TK_NE; }
 "<="            { return TK_LE; }
@@ -30,11 +25,8 @@ identifier  {letter}({letter}|{digit})*
                     yylval.name = strdup(yytext);
                     return TK_IDEN;
                 }
-[ \t]           ; // ignore whitespace
-\n              return 0; //logical EOF
+[ \t\n]         ; // ignore whitespace
+<<EOF>>         { yyterminate(); }
 .               return yytext[0];
 %%
-
-int yywrap () {
-    return 1;
-}
+// \n              return 0; //logical EOF

@@ -7,10 +7,10 @@ proj: setting lex.yy.c y.tab.c
 	@echo "\nProject Compiled!"
 
 lex.yy.c: y.tab.c src/lexer_spec.l
-	lex -o ./build/lex.yy.c src/lexer_spec.l
+	flex -o ./build/lex.yy.c src/lexer_spec.l
 
 y.tab.c: src/parser_spec.y
-	yacc -vd src/parser_spec.y -b ./build/y
+	yacc -d src/parser_spec.y -b ./build/y
 
 setting: 
 	@echo "Starting Compiling...\n"
