@@ -1,9 +1,9 @@
 %{
+#include "../include/def.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <gmodule.h>
-#include "def.h"
 
 static GHashTable *symtab;
 static GPtrArray *quadarray;
@@ -145,6 +145,7 @@ void backpatch(GSList *list, int i)
     Program *prgm;
     Statement *stmt;
     Expression *expr;
+    BoolExpr *bexpr;
     char *str;
     int intval;
 }
@@ -152,6 +153,7 @@ void backpatch(GSList *list, int i)
 %type <prgm> program
 %type <stmt> statement
 %type <expr> expression
+%type <bexpr> boolexpr
 %token <intval> TK_INT_LIT
 %token <str> TK_IDEN
 %token TK_IF
@@ -164,8 +166,8 @@ void backpatch(GSList *list, int i)
 %left '*' '/'
 %right TK_NOT
 %nonassoc TK_UMINUS
-
 %%
+
 program:    program 
             {
                 backpatch($1->nextlist, nextquad);
@@ -208,7 +210,7 @@ statement:  TK_VAR TK_IDEN ';'
                 }
                 $$ = stmt;
             }
-|           TK_IF '(' expression ')' '{' 
+|           TK_IF '(' boolexpr ')' '{'
             {
                 backpatch($3->truelist, nextquad);
             }
@@ -249,20 +251,6 @@ expression: expression '+' expression
                 makequad(strdup("*"), addrtostr($1->addr),
                     addrtostr($3->addr), addrtostr($$->addr), BINASSIG_TYPE);
             }
-|           expression '<' expression
-            {
-                Expression *expr = malloc(sizeof(*expr));
-                expr->truelist = makelist(nextquad);
-                expr->falselist = makelist(nextquad + 1);
-                makequad(strdup("<"), addrtostr($1->addr), addrtostr($3->addr), emptystr, IFGOTO_TYPE);
-                makequad(emptystr, emptystr, emptystr, emptystr, GOTO_TYPE);
-                $$ = expr;
-            }
-// |           expression '>' expression       { $$ = $1 > $3; }
-// |           expression TK_EQ expression     { $$ = $1 == $3; }
-// |           expression TK_NE expression     { $$ = $1 != $3; }
-// |           expression TK_LE expression     { $$ = $1 <= $3; }
-// |           expression TK_GE expression     { $$ = $1 >= $3; }
 |           '-' expression %prec TK_UMINUS
             {
                 Expression *expr = malloc(sizeof(*expr));
@@ -270,30 +258,9 @@ expression: expression '+' expression
                 $$ = expr;
                 makequad(strdup("-"), emptystr, addrtostr($2->addr), addrtostr($$->addr), UNASSIG_TYPE);
             }
-|           expression TK_AND 
-            {
-                backpatch($1->truelist, nextquad);
-            }
-            expression
-            {
-                Expression *expr = malloc(sizeof(*expr));
-                expr->truelist = $4->truelist;
-                expr->falselist = merge($1->falselist, $4->falselist);
-                $$ = expr;
-            }
-|           TK_NOT expression
-            {
-                Expression *expr = malloc(sizeof(*expr));
-                expr->truelist = $2->falselist;
-                expr->falselist = $2->truelist;
-                $$ = expr;
-            }
 |           '(' expression ')'
             {
-                Expression *expr = malloc(sizeof(*expr));
-                expr->truelist = $2->truelist;
-                expr->falselist = $2->falselist;
-                $$ = expr;
+                $$ = $2;
             }
 |           TK_IDEN
             {
@@ -302,8 +269,6 @@ expression: expression '+' expression
                 if (entry)
                 {
                     expr->addr = newaddr(entry);
-                    expr->truelist = NULL;
-                    expr->falselist = NULL;
                 }
                 else
                 {
@@ -315,19 +280,64 @@ expression: expression '+' expression
 |           TK_INT_LIT
             {
                 Expression *expr = malloc(sizeof(*expr));
-                expr->truelist = NULL;
-                expr->falselist = NULL;
                 Addr *addr = malloc(sizeof(*addr));
                 addr->addrvalue.intval = yylval.intval;
                 addr->addrvaluetype = INT_TYPE;
                 expr->addr = addr;
                 $$ = expr;
             }
-|           TK_EXIT {
-                printf("Exiting\n");
-                exit(0);
-            }
 ;
+
+boolexpr:   boolexpr TK_AND 
+            {
+                backpatch($1->truelist, nextquad);
+            }
+            boolexpr
+            {
+                BoolExpr *bexpr = malloc(sizeof(*bexpr));
+                bexpr->truelist = $4->truelist;
+                bexpr->falselist = merge($1->falselist, $4->falselist);
+                $$ = bexpr;
+            }
+|           boolexpr TK_OR 
+            {
+                backpatch($1->truelist, nextquad);
+            }
+            boolexpr
+            {
+                BoolExpr *bexpr = malloc(sizeof(*bexpr));
+                bexpr->truelist = merge($1->truelist, $4->truelist);
+                bexpr->falselist = $4->falselist;
+                $$ = bexpr;
+            }
+|           TK_NOT boolexpr
+            {
+                BoolExpr *bexpr = malloc(sizeof(*bexpr));
+                bexpr->truelist = $2->falselist;
+                bexpr->falselist = $2->truelist;
+                $$ = bexpr;
+            }
+|           '(' boolexpr ')'
+            {
+                BoolExpr *bexpr = malloc(sizeof(*bexpr));
+                bexpr->truelist = $2->truelist;
+                bexpr->falselist = $2->falselist;
+                $$ = bexpr;
+            }
+|           expression '<' expression
+            {
+                BoolExpr *bexpr = malloc(sizeof(*bexpr));
+                bexpr->truelist = makelist(nextquad);
+                bexpr->falselist = makelist(nextquad + 1);
+                makequad(strdup("<"), addrtostr($1->addr), addrtostr($3->addr), emptystr, IFGOTO_TYPE);
+                makequad(emptystr, emptystr, emptystr, emptystr, GOTO_TYPE);
+                $$ = bexpr;
+            }
+// |           expression '>' expression       { $$ = $1 > $3; }
+// |           expression TK_EQ expression     { $$ = $1 == $3; }
+// |           expression TK_NE expression     { $$ = $1 != $3; }
+// |           expression TK_LE expression     { $$ = $1 <= $3; }
+// |           expression TK_GE expression     { $$ = $1 >= $3; }
 %%
 
 int main(void)

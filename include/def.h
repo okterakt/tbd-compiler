@@ -1,5 +1,5 @@
-#ifndef __DEF_H__
-#define __DEF_H__
+#ifndef DEF_H
+#define DEF_H
 #include <gmodule.h>
 
 // SYMTAB ENTRY
@@ -38,9 +38,13 @@ typedef struct Expression
 {
     // attributes
     Addr *addr;
+} Expression;
+
+typedef struct BoolExpr
+{
     GSList *truelist;
     GSList *falselist;
-} Expression;
+} BoolExpr;
 
 typedef struct Statement
 {

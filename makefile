@@ -1,18 +1,15 @@
-# suppose you are in root directory of project
+# From root directory
 
-proj: setting lex.yy.c y.tab.c
+runner: setting lex.yy.c y.tab.c
+	gcc -o ./build/runner ./build/lex.yy.c ./build/y.tab.c -ly -ll `pkg-config --cflags --libs glib-2.0`
+	@echo "\nCompilation completed!"
 
-	@echo "\nCompiling using glib package...\n"
-	gcc -s ./build/lex.yy.c ./build/y.tab.c -o ./proj `pkg-config --cflags --libs glib-2.0`
-	@echo "\nProject Compiled!"
-
-lex.yy.c: y.tab.c src/lexer_spec.l
+lex.yy.c: src/lexer_spec.l
 	flex -o ./build/lex.yy.c src/lexer_spec.l
 
 y.tab.c: src/parser_spec.y
-	yacc -d src/parser_spec.y -b ./build/y
+	bison -d src/parser_spec.y -b ./build/y
 
 setting: 
-	@echo "Starting Compiling...\n"
+	@echo "Starting compilation...\n"
 	rm -rf ./build && mkdir build
-	cp src/def.h build/def.h
