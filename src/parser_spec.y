@@ -59,6 +59,10 @@ SymEntry *newsymentry(char *name)
 Addr *newaddr(SymEntry *entry)
 {
     Addr *addr = malloc(sizeof(*addr));
+    if (addr == NULL){
+        yyerror("Can't allocate the memory!");
+        exit(0);
+    }
     addr->addrvalue.entry = entry;
     addr->addrvaluetype = ENTRYPTR_TYPE;
     return addr;
@@ -318,6 +322,10 @@ expression: expression '+' expression
                 addr->addrvaluetype = INT_TYPE;
                 expr->addr = addr;
                 $$ = expr;
+            }
+|           TK_EXIT {
+                printf("Exiting\n");
+                exit(0);
             }
 ;
 %%

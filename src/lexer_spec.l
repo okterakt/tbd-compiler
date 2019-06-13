@@ -21,6 +21,7 @@ identifier  {letter}({letter}|{digit})*
 "!="            { return TK_NE; }
 "<="            { return TK_LE; }
 ">="            { return TK_GE; }
+
 {identifier}    {
                     yylval.str = strdup(yytext);
                     return TK_IDEN;
