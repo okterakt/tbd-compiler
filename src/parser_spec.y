@@ -11,7 +11,7 @@ static int tempcounter;
 static int nextquad;
 char *emptystr;
 
-void yyerror(char *s);
+void yyerror(char *msg);
 int yylex();
 extern int yylineno;
 
@@ -154,6 +154,7 @@ void backpatch(GSList *list, int i)
 %type <stmt> statement
 %type <expr> expression
 %type <bexpr> boolexpr
+%type <str> relop
 %token <intval> TK_INT_LIT
 %token <str> TK_IDEN
 %token TK_IF
@@ -170,10 +171,12 @@ void backpatch(GSList *list, int i)
 
 program:    program 
             {
-                backpatch($1->nextlist, nextquad);
+                $<intval>$ = nextquad;
+                // backpatch($1->nextlist, nextquad);
             }
             statement
             {
+                backpatch($1->nextlist, $<intval>2);
                 Program *prgm = malloc(sizeof(*prgm));
                 prgm->nextlist = $3->nextlist;
                 $$ = prgm;
@@ -205,17 +208,19 @@ statement:  TK_VAR TK_IDEN ';'
                 }
                 else
                 {
-                    fprintf(stderr, "Attempted use of undeclared variable\n");
+                    yyerror("attempted use of undeclared variable");
                     exit(0);
                 }
                 $$ = stmt;
             }
 |           TK_IF '(' boolexpr ')' '{'
             {
-                backpatch($3->truelist, nextquad);
+                $<intval>$ = nextquad;
+                // backpatch($3->truelist, nextquad);
             }
             statement '}'
             {
+                backpatch($3->truelist, $<intval>6);
                 Statement *stmt = malloc(sizeof(*stmt));
                 stmt->nextlist = merge($3->falselist, $7->nextlist);
                 $$ = stmt;
@@ -272,7 +277,7 @@ expression: expression '+' expression
                 }
                 else
                 {
-                    fprintf(stderr, "Attempted use of undeclared variable\n");
+                    yyerror("attempted use of undeclared variable");
                     exit(0);
                 }
                 $$ = expr;
@@ -301,10 +306,12 @@ boolexpr:   boolexpr TK_AND
             }
 |           boolexpr TK_OR 
             {
-                backpatch($1->truelist, nextquad);
+                $<intval>$ = nextquad;
+                // backpatch($1->falselist, nextquad);
             }
             boolexpr
             {
+                backpatch($1->falselist, $<intval>3);
                 BoolExpr *bexpr = malloc(sizeof(*bexpr));
                 bexpr->truelist = merge($1->truelist, $4->truelist);
                 bexpr->falselist = $4->falselist;
@@ -319,25 +326,27 @@ boolexpr:   boolexpr TK_AND
             }
 |           '(' boolexpr ')'
             {
-                BoolExpr *bexpr = malloc(sizeof(*bexpr));
-                bexpr->truelist = $2->truelist;
-                bexpr->falselist = $2->falselist;
-                $$ = bexpr;
+                // BoolExpr *bexpr = malloc(sizeof(*bexpr));
+                // bexpr->truelist = $2->truelist;
+                // bexpr->falselist = $2->falselist;
+                $$ = $2;
             }
-|           expression '<' expression
+|           expression relop expression
             {
                 BoolExpr *bexpr = malloc(sizeof(*bexpr));
                 bexpr->truelist = makelist(nextquad);
                 bexpr->falselist = makelist(nextquad + 1);
-                makequad(strdup("<"), addrtostr($1->addr), addrtostr($3->addr), emptystr, IFGOTO_TYPE);
+                makequad(strdup($2), addrtostr($1->addr), addrtostr($3->addr), emptystr, IFGOTO_TYPE);
                 makequad(emptystr, emptystr, emptystr, emptystr, GOTO_TYPE);
                 $$ = bexpr;
             }
-// |           expression '>' expression       { $$ = $1 > $3; }
-// |           expression TK_EQ expression     { $$ = $1 == $3; }
-// |           expression TK_NE expression     { $$ = $1 != $3; }
-// |           expression TK_LE expression     { $$ = $1 <= $3; }
-// |           expression TK_GE expression     { $$ = $1 >= $3; }
+
+relop:      '<'     { $$ = "<"; }
+|           '>'     { $$ = ">"; }
+|           TK_EQ   { $$ = "=="; }
+|           TK_NE   { $$ = "!="; }
+|           TK_LE   { $$ = "<="; }
+|           TK_GE   { $$ = ">="; }
 %%
 
 int main(void)
@@ -352,7 +361,7 @@ int main(void)
     return 0;
 }
 
-void yyerror (char *s)
+void yyerror (char *msg)
 {
-	fprintf(stderr, "\nError at line %d: %s\n\n", yylineno, s);
+	fprintf(stderr, "\nError at line %d: %s\n", yylineno, msg);
 }
