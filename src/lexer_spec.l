@@ -22,7 +22,7 @@ identifier  {letter}({letter}|{digit})*
 "<="            { return TK_LE; }
 ">="            { return TK_GE; }
 {identifier}    {
-                    yylval.name = strdup(yytext);
+                    yylval.str = strdup(yytext);
                     return TK_IDEN;
                 }
 [ \t\n]         ; // ignore whitespace
