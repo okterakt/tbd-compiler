@@ -107,11 +107,7 @@ void backpatch(GSList *list, int i)
 %nonassoc TK_ELSE
 %%
 
-statements: statements
-            {
-                $<intval>$ = nextquad;
-            }
-            statement
+statements: statements M statement
             {
                 backpatch($1->nextlist, $<intval>2);
                 Statements *stmts = safemalloc(sizeof(*stmts));
@@ -260,12 +256,7 @@ expression: expression '+' expression
             }
 ;
 
-boolexpr:   boolexpr TK_AND 
-            {
-                $<intval>$ = nextquad;
-                // backpatch($1->truelist, nextquad);
-            }
-            boolexpr
+boolexpr:   boolexpr TK_AND M boolexpr
             {
                 backpatch($1->truelist, $<intval>3);
                 BoolExpr *bexpr = safemalloc(sizeof(*bexpr));
@@ -273,12 +264,7 @@ boolexpr:   boolexpr TK_AND
                 bexpr->falselist = merge($1->falselist, $4->falselist);
                 $$ = bexpr;
             }
-|           boolexpr TK_OR 
-            {
-                $<intval>$ = nextquad;
-                // backpatch($1->falselist, nextquad);
-            }
-            boolexpr
+|           boolexpr TK_OR M boolexpr
             {
                 backpatch($1->falselist, $<intval>3);
                 BoolExpr *bexpr = safemalloc(sizeof(*bexpr));
