@@ -8,7 +8,7 @@ lex.yy.c: src/lexer_spec.l
 	flex -o ./build/lex.yy.c src/lexer_spec.l
 
 y.tab.c: src/parser_spec.y
-	bison -d src/parser_spec.y -b ./build/y
+	bison -vd src/parser_spec.y -b ./build/y
 
 setting: 
 	@echo "Starting compilation...\n"

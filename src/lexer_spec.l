@@ -13,6 +13,7 @@ identifier  {letter}({letter}|{digit})*
                     return TK_INT_LIT;
                 }
 "if"            { return TK_IF; }
+"else"          { return TK_ELSE; }
 "and"           { return TK_AND; }
 "or"            { return TK_OR; }
 "not"           { return TK_NOT; }

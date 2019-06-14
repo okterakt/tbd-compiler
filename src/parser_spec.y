@@ -94,7 +94,7 @@ void backpatch(GSList *list, int i)
 %type <str> relop
 %token <intval> TK_INT_LIT
 %token <str> TK_IDEN
-%token TK_IF
+%token TK_IF TK_ELSE
 %nonassoc TK_VAR
 %left TK_OR
 %left TK_AND
@@ -102,8 +102,9 @@ void backpatch(GSList *list, int i)
 %left '<' '>' TK_LE TK_GE
 %left '+' '-'
 %left '*' '/'
-%right TK_NOT
-%nonassoc TK_UMINUS
+%right TK_NOT TK_UMINUS
+%left '(' ')'
+%nonassoc TK_ELSE
 %%
 
 statements: statements
@@ -148,17 +149,21 @@ statement:  TK_VAR TK_IDEN ';'
                 }
                 $$ = stmt;
             }
-|           TK_IF '(' boolexpr ')'
-            {
-                $<intval>$ = nextquad;
-                // backpatch($3->truelist, nextquad);
-            }
-            statement
+|           TK_IF '(' boolexpr ')' M statement
             {
                 backpatch($3->truelist, $<intval>5);
                 Statement *stmt = safemalloc(sizeof(*stmt));
                 stmt->nextlist = merge($3->falselist, $6->nextlist);
                 $$ = stmt;
+            }
+|           TK_IF '(' boolexpr ')' M statement TK_ELSE N M statement
+            {
+                backpatch($3->truelist, $<intval>5);
+                backpatch($3->falselist, $<intval>9);
+                GSList *temp = merge($6->nextlist, $<stmt>8->nextlist);
+                Statement *stmt = safemalloc(sizeof(*stmt));
+                stmt->nextlist = merge(temp, $10->nextlist);
+                $<stmt>$ = stmt;
             }
 |           '{' statements '}'
             {
@@ -172,6 +177,18 @@ statement:  TK_VAR TK_IDEN ';'
                 $$ = stmt;
             }
 ;
+
+M:          %empty { $<intval>$ = nextquad; } // marker M
+;
+
+N:          %empty // marker N
+            {
+                Statement *stmt = safemalloc(sizeof(*stmt));
+                stmt->nextlist = makelist(nextquad);
+                makequad(emptystr, emptystr, emptystr, emptystr, GOTO_TYPE);
+                $<stmt>$ = stmt;
+            }
+; 
 
 expression: expression '+' expression
             {
