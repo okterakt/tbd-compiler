@@ -94,7 +94,7 @@ void backpatch(GSList *list, int i)
 %type <str> relop
 %token <intval> TK_INT_LIT
 %token <str> TK_IDEN
-%token TK_IF TK_ELSE
+%token TK_IF TK_ELSE TK_WHILE
 %nonassoc TK_VAR
 %left TK_OR
 %left TK_AND
@@ -165,6 +165,15 @@ statement:  TK_VAR TK_IDEN ';'
                 stmt->nextlist = merge(temp, $10->nextlist);
                 $<stmt>$ = stmt;
             }
+|           TK_WHILE M '(' boolexpr ')' M statement
+            {
+                backpatch($7->nextlist, $<intval>2);
+                backpatch($4->truelist, $<intval>6);
+                Statement *stmt = safemalloc(sizeof(*stmt));
+                stmt->nextlist = $4->falselist;
+                $<stmt>$ = stmt;
+                makequad(emptystr, emptystr, emptystr, inttostr($<intval>2), GOTO_TYPE);
+            }
 |           '{' statements '}'
             {
                 Statement *stmt = safemalloc(sizeof(*stmt));
@@ -185,8 +194,8 @@ N:          %empty // marker N
             {
                 Statement *stmt = safemalloc(sizeof(*stmt));
                 stmt->nextlist = makelist(nextquad);
-                makequad(emptystr, emptystr, emptystr, emptystr, GOTO_TYPE);
                 $<stmt>$ = stmt;
+                makequad(emptystr, emptystr, emptystr, emptystr, GOTO_TYPE);
             }
 ; 
 

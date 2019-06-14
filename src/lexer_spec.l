@@ -14,6 +14,7 @@ identifier  {letter}({letter}|{digit})*
                 }
 "if"            { return TK_IF; }
 "else"          { return TK_ELSE; }
+"while"         { return TK_WHILE; }
 "and"           { return TK_AND; }
 "or"            { return TK_OR; }
 "not"           { return TK_NOT; }
