@@ -3,6 +3,8 @@
 #include "y.tab.h"
 %}
 
+%option yylineno
+
 digit       [0-9]
 letter      [a-zA-Z]
 identifier  {letter}({letter}|{digit})*

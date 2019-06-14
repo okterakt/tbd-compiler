@@ -1,0 +1,13 @@
+var a;
+var b;
+var c;
+a = 10;
+b = 20;
+c = 30;
+if (a < b)
+    c = c * 2;
+else if (a == b)
+    c = c * 3;
+else
+    c = c * 4;
+c = c + 10;

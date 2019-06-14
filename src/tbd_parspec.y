@@ -12,7 +12,7 @@ static int nextquad;
 char *emptystr;
 
 FILE *yyin;
-void yyerror(char *msg);
+void yyerror(const char *msg);
 int yylex();
 extern int yylineno;
 
@@ -328,7 +328,8 @@ int main(int argc, char **argv)
     return 0;
 }
 
-void yyerror (char *msg)
+void yyerror (const char *msg)
 {
 	fprintf(stderr, "\nError at line %d: %s\n", yylineno, msg);
+    exit(0);
 }
