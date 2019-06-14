@@ -1,18 +1,14 @@
-# compiler-project
-Frontend of a simple compiler for the Formal Languages and Compilers course
+# TBD
+Frontend of a simple compiler for the Formal Languages and Compilers course.
 
 ## How to compile
-Execute the following from the root of the project directory
-```make```
-
-Alternative way
-```
-cd src/
-bison -d parser_spec.y -b ../build/y
-lex -o ../build/lex.yy.c lexer_spec.l
-cd ../build/
-gcc -o runner y.tab.c lex.yy.c -ly -ll `pkg-config --cflags --libs glib-2.0`
-```
+Execute `make` from the root of the project directory.
 
 ## How to run
-Execute the following from the root of the project directory `./build/runner`
+An input text file must be specified as argument for the parsing.
+The three address code will be displayed in the terminal.
+
+#### Usage example
+Execute the following from the root of the project directory `./build/runner ./test/input01.txt` .
+
+`runner` is the main program and `input01.txt` is an example of an input file.

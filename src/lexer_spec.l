@@ -26,8 +26,8 @@ identifier  {letter}({letter}|{digit})*
                     yylval.str = strdup(yytext);
                     return TK_IDEN;
                 }
-[ \t\n]         ; // ignore whitespace
+[ \t]           ; // ignore whitespace
+\n              { } // new line
 <<EOF>>         { yyterminate(); }
 .               return yytext[0];
 %%
-// \n              return 0; //logical EOF

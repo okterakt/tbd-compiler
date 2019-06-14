@@ -1,23 +1,13 @@
 #ifndef DEF_H
 #define DEF_H
+#include <stdlib.h>
 #include <gmodule.h>
 
-// SYMTAB ENTRY
 typedef struct SymEntry
 {
     char *name;
-    // enum Type type;
-    // int offset;
-    // int width;
 } SymEntry;
 
-// enum Type {
-//     int;
-//     float;
-//     string;
-// };
-
-// ADDR
 enum AddrValueType
 {
     ENTRYPTR_TYPE,
@@ -26,17 +16,25 @@ enum AddrValueType
 
 typedef struct Addr
 {
-    union AddrValue
-    {
+    union AddrValue {
         SymEntry *entry;
         int intval;
     } addrvalue;
     enum AddrValueType addrvaluetype;
 } Addr;
 
+typedef struct Statements
+{
+    GSList *nextlist;
+} Statements;
+
+typedef struct Statement
+{
+    GSList *nextlist;
+} Statement;
+
 typedef struct Expression
 {
-    // attributes
     Addr *addr;
 } Expression;
 
@@ -45,16 +43,6 @@ typedef struct BoolExpr
     GSList *truelist;
     GSList *falselist;
 } BoolExpr;
-
-typedef struct Statement
-{
-    GSList *nextlist;
-} Statement;
-
-typedef struct Program
-{
-    GSList *nextlist;
-} Program;
 
 enum QuadType
 {
@@ -72,4 +60,5 @@ typedef struct Quad
     char *result;
     enum QuadType quadtype;
 } Quad;
+
 #endif

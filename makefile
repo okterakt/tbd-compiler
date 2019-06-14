@@ -1,7 +1,7 @@
 # From root directory
 
-runner: setting lex.yy.c y.tab.c
-	gcc -o ./build/runner ./build/lex.yy.c ./build/y.tab.c -ly -ll `pkg-config --cflags --libs glib-2.0`
+runner: setting lex.yy.c y.tab.c ./src/util.c
+	gcc -o ./build/runner ./build/lex.yy.c ./build/y.tab.c ./src/util.c -ly -ll `pkg-config --cflags --libs glib-2.0`
 	@echo "\nCompilation completed!"
 
 lex.yy.c: src/lexer_spec.l

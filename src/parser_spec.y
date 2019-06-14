@@ -1,9 +1,9 @@
 %{
+#include "../include/util.h"
 #include "../include/def.h"
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <gmodule.h>
+#include <stdlib.h>
 
 static GHashTable *symtab;
 static GPtrArray *quadarray;
@@ -11,46 +11,14 @@ static int tempcounter;
 static int nextquad;
 char *emptystr;
 
+FILE *yyin;
 void yyerror(char *msg);
 int yylex();
 extern int yylineno;
 
-void printquad(Quad *quad)
-{
-    if (quad->quadtype == UNASSIG_TYPE)
-        printf("%s = %s%s\n", quad->result, quad->op, quad->arg2);
-    else if (quad->quadtype == BINASSIG_TYPE)
-        printf("%s = %s %s %s\n", quad->result, quad->arg1, quad->op, quad->arg2);
-    else if (quad->quadtype == IFGOTO_TYPE)
-        printf("if %s %s %s goto %s\n", quad->arg1, quad->op, quad->arg2, quad->result);
-    else
-        printf("goto %s\n", quad->result); // GOTO_TYPE
-}
-
-void printlist(GSList *list)
-{
-    GSList *l = list;
-    while (l != NULL)
-    {
-        printf("%d  ", GPOINTER_TO_INT(l->data));
-        l = l->next;
-    }
-    printf("\n");
-}
-
-void printcode()
-{
-    for (int i = 0; i < quadarray->len; i++)
-    {
-        Quad *quad = g_ptr_array_index(quadarray, i);
-        printf("%d:\t", i);
-        printquad(quad);
-    }
-}
-
 SymEntry *newsymentry(char *name)
 {
-    SymEntry *entry = malloc(sizeof(*entry));
+    SymEntry *entry = safemalloc(sizeof(*entry));
     entry->name = name;
     g_hash_table_insert(symtab, entry->name, entry);
     return entry;
@@ -58,54 +26,23 @@ SymEntry *newsymentry(char *name)
 
 Addr *newaddr(SymEntry *entry)
 {
-    Addr *addr = malloc(sizeof(*addr));
-    if (addr == NULL){
-        yyerror("Can't allocate the memory!");
-        exit(0);
-    }
+    Addr *addr = safemalloc(sizeof(*addr));
     addr->addrvalue.entry = entry;
     addr->addrvaluetype = ENTRYPTR_TYPE;
     return addr;
 }
 
 Addr *newtemp()
-{   
+{
     int len = 14;
-    char *temp = malloc(sizeof(*temp) * len);
+    char *temp = safemalloc(sizeof(*temp) * len);
     snprintf(temp, len, "t%d", tempcounter++);
     return newaddr(newsymentry(temp));
 }
 
-char *concat(char *str1, char *str2)
-{
-    int len = snprintf(NULL, 0, "%s%s", str1, str2);
-    char *res = malloc(sizeof(*res) * len + 1);
-    snprintf(res, len + 1, "%s%s", str1, str2);
-    return res;
-}
-
-char *inttostr(int i)
-{
-    int len = 13;
-    char *str = malloc(sizeof(*str) * len);
-    snprintf(str, len, "%d", i);
-    return str;
-}
-
-char *addrtostr(Addr *addr)
-{
-    if (addr->addrvaluetype == ENTRYPTR_TYPE)
-        return addr->addrvalue.entry->name;
-    else
-        return inttostr(addr->addrvalue.intval);
-}
-
 Quad *makequad(char *op, char *arg1, char *arg2, char *result, enum QuadType quadtype)
 {
-    Quad *quad = malloc(sizeof(*quad));
-    // TODO: print something before exit
-    if (quad == NULL)
-        exit(0); 
+    Quad *quad = safemalloc(sizeof(*quad));
     quad->op = op;
     quad->arg1 = arg1;
     quad->arg2 = arg2;
@@ -142,7 +79,7 @@ void backpatch(GSList *list, int i)
 
 %union
 {
-    Program *prgm;
+    Statements *stmts;
     Statement *stmt;
     Expression *expr;
     BoolExpr *bexpr;
@@ -150,7 +87,7 @@ void backpatch(GSList *list, int i)
     int intval;
 }
 
-%type <prgm> program
+%type <stmts> statements
 %type <stmt> statement
 %type <expr> expression
 %type <bexpr> boolexpr
@@ -169,37 +106,35 @@ void backpatch(GSList *list, int i)
 %nonassoc TK_UMINUS
 %%
 
-program:    program 
+statements: statements
             {
                 $<intval>$ = nextquad;
-                // backpatch($1->nextlist, nextquad);
             }
             statement
             {
                 backpatch($1->nextlist, $<intval>2);
-                Program *prgm = malloc(sizeof(*prgm));
-                prgm->nextlist = $3->nextlist;
-                $$ = prgm;
-                printcode();
+                Statements *stmts = safemalloc(sizeof(*stmts));
+                stmts->nextlist = $3->nextlist;
+                $$ = stmts;
             }
 |           statement
             {
-                Program *prgm = malloc(sizeof(*prgm));
-                prgm->nextlist = $1->nextlist;
-                $$ = prgm;
+                Statements *stmts = safemalloc(sizeof(*stmts));
+                stmts->nextlist = $1->nextlist;
+                $$ = stmts;
             }
 ;
 
 statement:  TK_VAR TK_IDEN ';'
             {
                 newsymentry($2);
-                Statement *stmt = malloc(sizeof(*stmt));
+                Statement *stmt = safemalloc(sizeof(*stmt));
                 stmt->nextlist = NULL;
                 $$ = stmt;
             }
 |           TK_IDEN '=' expression ';'
             {
-                Statement *stmt = malloc(sizeof(*stmt));                
+                Statement *stmt = safemalloc(sizeof(*stmt));                
                 SymEntry *entry = g_hash_table_lookup(symtab, $1);
                 if (entry)
                 {
@@ -213,28 +148,34 @@ statement:  TK_VAR TK_IDEN ';'
                 }
                 $$ = stmt;
             }
-|           TK_IF '(' boolexpr ')' '{'
+|           TK_IF '(' boolexpr ')'
             {
                 $<intval>$ = nextquad;
                 // backpatch($3->truelist, nextquad);
             }
-            statement '}'
+            statement
             {
-                backpatch($3->truelist, $<intval>6);
-                Statement *stmt = malloc(sizeof(*stmt));
-                stmt->nextlist = merge($3->falselist, $7->nextlist);
+                backpatch($3->truelist, $<intval>5);
+                Statement *stmt = safemalloc(sizeof(*stmt));
+                stmt->nextlist = merge($3->falselist, $6->nextlist);
+                $$ = stmt;
+            }
+|           '{' statements '}'
+            {
+                Statement *stmt = safemalloc(sizeof(*stmt));
+                stmt->nextlist = $2->nextlist;
                 $$ = stmt;
             }
 |           expression ';'
             {
-                Statement *stmt = malloc(sizeof(*stmt));
+                Statement *stmt = safemalloc(sizeof(*stmt));
                 $$ = stmt;
             }
 ;
 
 expression: expression '+' expression
             {
-                Expression *expr = malloc(sizeof(*expr));
+                Expression *expr = safemalloc(sizeof(*expr));
                 expr->addr = newtemp();
                 $$ = expr;
                 makequad(strdup("+"), addrtostr($1->addr),
@@ -242,7 +183,7 @@ expression: expression '+' expression
             }
 |           expression '-' expression
             {
-                Expression *expr = malloc(sizeof(*expr));
+                Expression *expr = safemalloc(sizeof(*expr));
                 expr->addr = newtemp();
                 $$ = expr;
                 makequad(strdup("-"), addrtostr($1->addr),
@@ -250,7 +191,7 @@ expression: expression '+' expression
             }
 |           expression '*' expression
             {
-                Expression *expr = malloc(sizeof(*expr));
+                Expression *expr = safemalloc(sizeof(*expr));
                 expr->addr = newtemp();
                 $$ = expr;
                 makequad(strdup("*"), addrtostr($1->addr),
@@ -258,7 +199,7 @@ expression: expression '+' expression
             }
 |           '-' expression %prec TK_UMINUS
             {
-                Expression *expr = malloc(sizeof(*expr));
+                Expression *expr = safemalloc(sizeof(*expr));
                 expr->addr = newtemp();
                 $$ = expr;
                 makequad(strdup("-"), emptystr, addrtostr($2->addr), addrtostr($$->addr), UNASSIG_TYPE);
@@ -269,7 +210,7 @@ expression: expression '+' expression
             }
 |           TK_IDEN
             {
-                Expression *expr = malloc(sizeof(*expr));
+                Expression *expr = safemalloc(sizeof(*expr));
                 SymEntry *entry = g_hash_table_lookup(symtab, yylval.str);
                 if (entry)
                 {
@@ -284,8 +225,8 @@ expression: expression '+' expression
             }
 |           TK_INT_LIT
             {
-                Expression *expr = malloc(sizeof(*expr));
-                Addr *addr = malloc(sizeof(*addr));
+                Expression *expr = safemalloc(sizeof(*expr));
+                Addr *addr = safemalloc(sizeof(*addr));
                 addr->addrvalue.intval = yylval.intval;
                 addr->addrvaluetype = INT_TYPE;
                 expr->addr = addr;
@@ -295,11 +236,13 @@ expression: expression '+' expression
 
 boolexpr:   boolexpr TK_AND 
             {
-                backpatch($1->truelist, nextquad);
+                $<intval>$ = nextquad;
+                // backpatch($1->truelist, nextquad);
             }
             boolexpr
             {
-                BoolExpr *bexpr = malloc(sizeof(*bexpr));
+                backpatch($1->truelist, $<intval>3);
+                BoolExpr *bexpr = safemalloc(sizeof(*bexpr));
                 bexpr->truelist = $4->truelist;
                 bexpr->falselist = merge($1->falselist, $4->falselist);
                 $$ = bexpr;
@@ -312,28 +255,28 @@ boolexpr:   boolexpr TK_AND
             boolexpr
             {
                 backpatch($1->falselist, $<intval>3);
-                BoolExpr *bexpr = malloc(sizeof(*bexpr));
+                BoolExpr *bexpr = safemalloc(sizeof(*bexpr));
                 bexpr->truelist = merge($1->truelist, $4->truelist);
                 bexpr->falselist = $4->falselist;
                 $$ = bexpr;
             }
 |           TK_NOT boolexpr
             {
-                BoolExpr *bexpr = malloc(sizeof(*bexpr));
+                BoolExpr *bexpr = safemalloc(sizeof(*bexpr));
                 bexpr->truelist = $2->falselist;
                 bexpr->falselist = $2->truelist;
                 $$ = bexpr;
             }
 |           '(' boolexpr ')'
             {
-                // BoolExpr *bexpr = malloc(sizeof(*bexpr));
+                // BoolExpr *bexpr = safemalloc(sizeof(*bexpr));
                 // bexpr->truelist = $2->truelist;
                 // bexpr->falselist = $2->falselist;
                 $$ = $2;
             }
 |           expression relop expression
             {
-                BoolExpr *bexpr = malloc(sizeof(*bexpr));
+                BoolExpr *bexpr = safemalloc(sizeof(*bexpr));
                 bexpr->truelist = makelist(nextquad);
                 bexpr->falselist = makelist(nextquad + 1);
                 makequad(strdup($2), addrtostr($1->addr), addrtostr($3->addr), emptystr, IFGOTO_TYPE);
@@ -349,15 +292,27 @@ relop:      '<'     { $$ = "<"; }
 |           TK_GE   { $$ = ">="; }
 %%
 
-int main(void)
+int main(int argc, char **argv)
 {
+    // open file
+    if (argc != 2)
+    {
+        fprintf(stderr, "tbd: fatal error: no input file\n");
+        exit(0);
+    }
+    yyin = fopen(argv[1], "r");
+
+    // init global variables
     emptystr = strdup("");
     tempcounter = 0;
     nextquad = 0;
     symtab = g_hash_table_new(g_str_hash, g_str_equal);
     quadarray = g_ptr_array_new();
+    
+    // parse
     yyparse();
-
+    fclose(yyin);
+    printcode(quadarray);
     return 0;
 }
 
